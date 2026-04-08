@@ -7,7 +7,7 @@ Automated incident diagnostics powered by Ansible Lightspeed (ALIA). When a Serv
 ```
   ServiceNow              EDA Rulebook              AAP Controller
   ┌──────────┐           ┌──────────────┐          ┌──────────────────┐
-  │ Incident │──polled──>│ listen_snow  │──launch──>│ ALIA Diagnostics │
+  │ Incident │<──polled──│ listen_snow  │──launch──>│ ALIA Diagnostics │
   │ created  │  every    │ _incidents   │          │  (Job Template)  │
   └──────────┘  10s      └──────────────┘          └────────┬─────────┘
                                                             │
