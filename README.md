@@ -7,11 +7,15 @@ Automated incident diagnostics powered by Ansible Lightspeed (ALIA). When a Serv
 ```
   ServiceNow             EDA Rulebook            AAP Workflow
   ┌──────────┐          ┌──────────────┐       ┌─────────────────────────────────┐
-  │ Incident │──polled──│ listen_snow  │──run──│  1. Gather Diagnostics          │
-  │ created  │  every   │ _incidents   │       │     (SSH to EC2, inspect host)  │
+  │ Incident │──polled──│ listen_snow  │──run──│  1. CMDB Lookup                 │
+  │ created  │  every   │ _incidents   │       │     (get host IP from CI)       │
   └──────────┘  10s     └──────────────┘       │            │ set_stats          │
                                                │            ▼                    │
-       ┌───────────────────────────────────────│  2. ALIA Enrichment             │
+                                               │  2. Gather Diagnostics          │
+                                               │     (SSH to EC2, inspect host)  │
+                                               │            │ set_stats          │
+                                               │            ▼                    │
+       ┌───────────────────────────────────────│  3. ALIA Enrichment             │
        │                                       │     (send to AI, get analysis)  │
        │                                       └─────────────────────────────────┘
        ▼
@@ -23,18 +27,20 @@ Automated incident diagnostics powered by Ansible Lightspeed (ALIA). When a Serv
   └──────────┘
 ```
 
-1. A **ServiceNow incident** is created (manually, or via the Prometheus monitoring stack in `setup/`)
+1. A **ServiceNow incident** is created (manually, or via the Prometheus monitoring stack in `setup/`). The incident is linked to a **CMDB Configuration Item** representing the EC2 host.
 2. The **EDA rulebook** polls the incident table every 10 seconds and detects the new record
 3. EDA launches the **Incident Diagnostics Workflow** on AAP Controller
-4. **Step 1 — Gather Diagnostics**: SSHs into the affected host, checks systemd status, pulls journal logs, collects system health (disk, memory, uptime)
-5. **Step 2 — ALIA Enrichment**: Sends the incident description + diagnostics report to the Ansible Lightspeed AI agent
-6. The AI analysis is **posted back** to the ServiceNow incident as worknotes
+4. **Step 1 — CMDB Lookup**: Queries the incident for its CMDB CI reference, then resolves the CI to the affected host's IP address
+5. **Step 2 — Gather Diagnostics**: SSHs into the affected host (using the IP from CMDB), checks systemd status, pulls journal logs, collects system health (disk, memory, uptime)
+6. **Step 3 — ALIA Enrichment**: Sends the incident description + diagnostics report to the Ansible Lightspeed AI agent
+7. The AI analysis is **posted back** to the ServiceNow incident as worknotes
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `playbooks/gather_diagnostics.yml` | SSHs to the affected host, collects systemd + journal + system health data |
+| `playbooks/cmdb_lookup.yml` | Queries ServiceNow CMDB to resolve the affected host IP from the incident's CI |
+| `playbooks/gather_diagnostics.yml` | SSHs to the affected host (dynamic from CMDB), collects systemd + journal + system health data |
 | `playbooks/alia_enrichment.yml` | Sends diagnostics to ALIA, updates the ServiceNow incident with AI analysis |
 | `rulebooks/listen_snow_incidents.yml` | EDA rulebook — monitors ServiceNow incident table, triggers the workflow |
 | `ansible_deployment/cac/` | Configuration as Code to push all AAP objects (projects, job templates, workflow, EDA activations) |
@@ -70,6 +76,7 @@ Within ~30 seconds:
 1. **Prometheus** detects `httpd.service` is no longer active
 2. **AlertManager** fires the alert and the webhook bridge creates a **ServiceNow incident**
 3. **EDA rulebook** picks up the new incident and launches the **Incident Diagnostics Workflow** on AAP:
+   - **CMDB Lookup** — resolves the incident's CMDB CI to the affected host's IP address
    - **Gather Diagnostics** — SSHs into the EC2 host, captures the systemd status, journal logs (including the config error), and system health
    - **ALIA Enrichment** — sends the full diagnostics report to the AI agent for root-cause analysis
 4. **ServiceNow** — the incident is updated to "In Progress" with AI-generated worknotes explaining the issue
@@ -93,18 +100,18 @@ curl -s http://localhost
 
 First-time environment provisioning (EC2 instance, Prometheus, AlertManager) is documented in [`setup/README.md`](setup/README.md).
 
-## AAP Configuration-as-Code
+## AAP Configuration as Code
 
 Push all AAP objects (credential types, credentials, projects, job templates, workflow, EDA rulebook activations) in one shot:
 
 ```bash
-source .env
-ansible-playbook ansible_deployment/cac/apply.yml
+./ansible_deployment/scripts/cac-apply.sh
 ```
 
+The script loads and exports variables from `.env` automatically.
+
 **Note:** After running CaC, you still need to manually add to AAP:
-- An inventory called "Monitoring Hosts" containing the EC2 instance IP (from `terraform output`)
-- A Machine credential called "Monitoring SSH" with the private key from `setup/terraform/demo-key.pem`
+- An inventory called "Demo Inventory" containing `localhost` (used by all job templates; the affected host is resolved dynamically from CMDB)
 
 ## Environment Variables
 

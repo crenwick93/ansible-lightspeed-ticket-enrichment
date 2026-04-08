@@ -1,6 +1,19 @@
 ---
+# Play 1: Add the target host dynamically from the CMDB lookup result
+- name: Register target host from CMDB lookup
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Add target host to in-memory inventory
+      ansible.builtin.add_host:
+        name: "{{ target_host_ip }}"
+        groups: target_hosts
+        ansible_user: ec2-user
+        ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+
+# Play 2: Run diagnostics against the dynamically-added host
 - name: Gather system diagnostics from affected host
-  hosts: all
+  hosts: target_hosts
   become: true
   gather_facts: true
 
@@ -9,13 +22,9 @@
 
   tasks:
 
-    # ── Identify the affected service ──────────────────────────────
-
     - name: Extract service name from incident description (if present)
       ansible.builtin.set_fact:
         service_name: "{{ incident_description | default('') | regex_search('(\\S+\\.service)', '\\1') | default([service_name], true) | first }}"
-
-    # ── Systemd diagnostics ────────────────────────────────────────
 
     - name: List all failed systemd units
       ansible.builtin.command: systemctl list-units --state=failed --no-pager --no-legend
@@ -41,8 +50,6 @@
       changed_when: false
       failed_when: false
 
-    # ── System health ──────────────────────────────────────────────
-
     - name: Get system uptime
       ansible.builtin.command: uptime
       register: sys_uptime
@@ -57,8 +64,6 @@
       ansible.builtin.command: free -h
       register: sys_memory
       changed_when: false
-
-    # ── Assemble diagnostics report ────────────────────────────────
 
     - name: Build diagnostics report
       ansible.builtin.set_fact:
@@ -88,8 +93,6 @@
     - name: Display diagnostics report
       ansible.builtin.debug:
         var: diagnostics_report
-
-    # ── Publish for the next workflow node ──────────────────────────
 
     - name: Publish diagnostics report via set_stats
       ansible.builtin.set_stats:

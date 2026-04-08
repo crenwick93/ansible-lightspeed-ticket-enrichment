@@ -271,3 +271,74 @@
       ansible.builtin.systemd:
         name: snow-webhook
         state: restarted
+
+# ── Register EC2 instance in ServiceNow CMDB ──────────────────
+- name: Register monitoring host in ServiceNow CMDB
+  hosts: localhost
+  gather_facts: false
+  vars:
+    servicenow_instance: "{{ lookup('env', 'SN_INSTANCE') }}"
+    servicenow_username: "{{ lookup('env', 'SN_USERNAME') }}"
+    servicenow_password: "{{ lookup('env', 'SN_PASSWORD') }}"
+    monitoring_host_ip: "{{ hostvars['monitoring']['ansible_host'] }}"
+    cmdb_ci_name: "prom-alertmgr-demo"
+  environment:
+    SN_HOST: "{{ servicenow_instance }}"
+    SN_USERNAME: "{{ servicenow_username }}"
+    SN_PASSWORD: "{{ servicenow_password }}"
+  tasks:
+    - name: Look up existing CMDB CI by name
+      servicenow.itsm.configuration_item_info:
+        query:
+          - name: = {{ cmdb_ci_name }}
+            sys_class_name: = cmdb_ci_linux_server
+      register: existing_ci
+
+    - name: Update existing CMDB CI with current IP
+      servicenow.itsm.configuration_item:
+        sys_id: "{{ existing_ci.records[0].sys_id }}"
+        ip_address: "{{ monitoring_host_ip }}"
+        other:
+          short_description: "Prometheus/AlertManager monitoring demo host"
+      register: cmdb_ci_result
+      when: existing_ci.records | length > 0
+
+    - name: Create CMDB CI (first run)
+      servicenow.itsm.configuration_item:
+        name: "{{ cmdb_ci_name }}"
+        sys_class_name: cmdb_ci_linux_server
+        ip_address: "{{ monitoring_host_ip }}"
+        other:
+          short_description: "Prometheus/AlertManager monitoring demo host"
+      register: cmdb_ci_created
+      when: existing_ci.records | length == 0
+
+    - name: Resolve CMDB CI sys_id
+      ansible.builtin.set_fact:
+        cmdb_ci_sys_id: "{{ (cmdb_ci_result.record.sys_id if existing_ci.records | length > 0 else cmdb_ci_created.record.sys_id) }}"
+
+    - name: Show CMDB CI sys_id
+      ansible.builtin.debug:
+        msg: "CMDB CI sys_id: {{ cmdb_ci_sys_id }}"
+
+# ── Redeploy webhook bridge with CMDB CI link ─────────────────
+- name: Update webhook bridge with CMDB CI reference
+  hosts: monitoring
+  become: true
+  vars:
+    servicenow_instance: "{{ lookup('env', 'SN_INSTANCE') }}"
+    servicenow_username: "{{ lookup('env', 'SN_USERNAME') }}"
+    servicenow_password: "{{ lookup('env', 'SN_PASSWORD') }}"
+    webhook_port: 5001
+    cmdb_ci_sys_id: "{{ hostvars['localhost']['cmdb_ci_sys_id'] }}"
+  tasks:
+    - name: Redeploy webhook bridge with CMDB CI sys_id
+      ansible.builtin.template:
+        src: templates/snow_webhook.py.j2
+        dest: /usr/local/bin/snow-webhook-bridge
+        mode: "0755"
+
+    - name: Restart webhook bridge
+      ansible.builtin.systemd:
+        name: snow-webhook
+        state: restarted

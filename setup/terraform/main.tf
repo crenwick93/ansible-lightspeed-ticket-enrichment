@@ -132,6 +132,14 @@ resource "aws_instance" "monitoring" {
   tags = { Name = "prom-alertmgr-demo" }
 }
 
+# ── Elastic IP (survives stop / start) ────────────────────────
+
+resource "aws_eip" "monitoring" {
+  instance = aws_instance.monitoring.id
+  domain   = "vpc"
+  tags     = { Name = "prom-alertmgr-demo" }
+}
+
 # ── Generated Ansible inventory ───────────────────────────────
 
 resource "local_file" "ansible_inventory" {
@@ -139,7 +147,7 @@ resource "local_file" "ansible_inventory" {
     all:
       hosts:
         monitoring:
-          ansible_host: ${aws_instance.monitoring.public_ip}
+          ansible_host: ${aws_eip.monitoring.public_ip}
           ansible_user: ec2-user
           ansible_ssh_private_key_file: ${abspath(local_sensitive_file.ssh_private_key.filename)}
           ansible_ssh_common_args: "-o StrictHostKeyChecking=no"

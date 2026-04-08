@@ -1,0 +1,35 @@
+---
+- name: CMDB Lookup - Resolve affected host from incident
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+
+    - name: Query incident to get CMDB CI reference
+      servicenow.itsm.incident_info:
+        sys_id: "{{ incident_sys_id }}"
+      register: incident_result
+
+    - name: Extract CMDB CI sys_id from incident
+      ansible.builtin.set_fact:
+        cmdb_ci_sys_id: "{{ incident_result.records[0].cmdb_ci.value }}"
+
+    - name: Query CMDB for configuration item details
+      servicenow.itsm.configuration_item_info:
+        sys_id: "{{ cmdb_ci_sys_id }}"
+      register: ci_result
+
+    - name: Extract host IP from CMDB CI
+      ansible.builtin.set_fact:
+        target_host_ip: "{{ ci_result.records[0].ip_address }}"
+
+    - name: Show resolved host
+      ansible.builtin.debug:
+        msg: "CMDB resolved host IP: {{ target_host_ip }} (CI: {{ ci_result.records[0].name }})"
+
+    - name: Publish target host IP for next workflow step
+      ansible.builtin.set_stats:
+        data:
+          target_host_ip: "{{ target_host_ip }}"
+          incident_sys_id: "{{ incident_sys_id }}"
+          incident_description: "{{ incident_description }}"

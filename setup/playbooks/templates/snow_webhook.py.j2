@@ -24,6 +24,7 @@ SN_INSTANCE = "{{ servicenow_instance }}"
 SN_USERNAME = "{{ servicenow_username }}"
 SN_PASSWORD = "{{ servicenow_password }}"
 LISTEN_PORT = {{ webhook_port }}
+CMDB_CI_SYS_ID = "{{ cmdb_ci_sys_id | default('') }}"
 
 
 def create_incident(alert):
@@ -40,6 +41,8 @@ def create_incident(alert):
         "impact": "1",
         "category": "Software",
     }
+    if CMDB_CI_SYS_ID:
+        incident["cmdb_ci"] = CMDB_CI_SYS_ID
 
     url = f"{SN_INSTANCE.rstrip('/')}/api/now/table/incident"
     creds = base64.b64encode(f"{SN_USERNAME}:{SN_PASSWORD}".encode()).decode()
