@@ -6,23 +6,27 @@ You only need to run this **once** before the demo.
 
 ## Prerequisites
 
-- AWS CLI configured with valid credentials
+- AWS CLI configured with valid credentials (`aws configure` or environment variables)
 - Terraform >= 1.5
 - Ansible (any recent version with `ansible.builtin` modules)
-- An existing EC2 key pair in your target AWS region
 - ServiceNow credentials in the root `.env` file
 
 ## 1. Provision the EC2 Instance
 
 ```bash
 cd setup/terraform
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars — set key_name, private_key_path, and optionally allowed_cidr
 terraform init
 terraform apply
 ```
 
-Terraform will output the public IP and auto-generate `setup/playbooks/inventory/hosts.yml`.
+That's it. Terraform will:
+
+- Generate an SSH key pair automatically
+- Create the EC2 instance and security group
+- Write the private key to `setup/terraform/demo-key.pem`
+- Generate the Ansible inventory at `setup/playbooks/inventory/hosts.yml`
+
+Optionally copy and edit `terraform.tfvars.example` to change region, instance size, or restrict the allowed CIDR.
 
 ## 2. Configure the Monitoring Stack
 
@@ -47,6 +51,15 @@ This installs and starts all five systemd services on the EC2 instance:
 - **Hello World** — `http://<EC2_IP>`
 - **Prometheus Targets** — `http://<EC2_IP>:9090/targets` (both should show UP)
 - **AlertManager** — `http://<EC2_IP>:9093`
+
+## Tear Down
+
+```bash
+cd setup/terraform
+terraform destroy
+```
+
+This removes the EC2 instance, security group, and key pair from AWS.
 
 ## What Happens When httpd Stops
 
