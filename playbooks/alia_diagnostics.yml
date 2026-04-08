@@ -1,0 +1,70 @@
+---
+- name: ALIA Diagnostics
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    alia_base_url: "https://localhost:8443"
+    alia_token: "{{ lookup('env', 'ALIA_TOKEN') }}"
+    validate_tls: false
+    request_timeout: 120
+
+  tasks:
+    - name: Call ALIA to run RCA diagnostics
+      ansible.builtin.uri:
+        url: "{{ alia_base_url }}/api/lightspeed/v1/ai/chat/"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ alia_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          query: "{{ incident_description }}"
+        return_content: true
+        status_code: 200
+        validate_certs: "{{ validate_tls }}"
+        timeout: "{{ request_timeout }}"
+      register: alia_response
+
+    - name: Parse JSON response
+      ansible.builtin.set_fact:
+        alia_result: "{{ alia_response.json | default((alia_response.content | from_json), true) }}"
+
+    - name: Show full JSON response
+      ansible.builtin.debug:
+        var: alia_result
+
+    - name: Show worknotes (ServiceNow-ready)
+      ansible.builtin.debug:
+        msg: "{{ alia_result.worknotes | default('no worknotes returned') }}"
+
+    - name: Show structured JSON block (output_as_json)
+      ansible.builtin.debug:
+        var: alia_result.output_as_json
+
+###############################################################################################
+#####################  UPLOAD REPORT TO SERVICE NOW (IF REQUIRED) ############################
+- name: Upload report to ServiceNow
+  hosts: localhost
+  gather_facts: true
+  tasks:
+    # Create ServiceNow incident and set incident_sys_id so it's accessible in workflow or rulebook
+
+    - name: Update ticket with report
+      servicenow.itsm.incident:
+        sys_id: "{{ incident_sys_id }}"
+        state: 2 # In Progress
+        other:
+          work_notes: "{{ alia_result.worknotes | default('no worknotes returned') }}"
+
+    - name: Add advisory about proposed remediation (if suggested by diagnostics)
+      servicenow.itsm.incident:
+        sys_id: "{{ incident_sys_id }}"
+        other:
+          work_notes: >-
+            The k8s diagnostics agent has suggested running
+            "{{ diagnostics_structured.proposed_remediation_via_aap.job_template_name }}" on AAP to resolve the issue.
+            A change request has been raised. Please approve to attempt the remediation.
+      when:
+        - diagnostics_structured.proposed_remediation_via_aap is defined
+        - (incident_sys_id | default('')) | length > 0

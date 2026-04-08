@@ -1,0 +1,12 @@
+.ansible
+.env
+
+# Terraform
+setup/terraform/.terraform/
+setup/terraform/*.tfstate
+setup/terraform/*.tfstate.backup
+setup/terraform/.terraform.lock.hcl
+setup/terraform/terraform.tfvars
+
+# Generated Ansible inventory (contains IPs / key paths)
+setup/playbooks/inventory/hosts.yml

@@ -1,0 +1,273 @@
+---
+- name: Deploy Prometheus monitoring stack with httpd hello-world app
+  hosts: monitoring
+  become: true
+  gather_facts: true
+
+  vars:
+    prometheus_version: "2.53.3"
+    alertmanager_version: "0.27.0"
+    node_exporter_version: "1.8.2"
+
+    prometheus_user: prometheus
+    prometheus_group: prometheus
+    install_dir: /opt
+    prometheus_config_dir: /etc/prometheus
+    alertmanager_config_dir: /etc/alertmanager
+    prometheus_data_dir: /var/lib/prometheus
+    alertmanager_data_dir: /var/lib/alertmanager
+
+    webhook_port: 5001
+
+    servicenow_instance: "{{ lookup('env', 'SN_INSTANCE') }}"
+    servicenow_username: "{{ lookup('env', 'SN_USERNAME') }}"
+    servicenow_password: "{{ lookup('env', 'SN_PASSWORD') }}"
+
+    monitored_services:
+      - httpd.service
+
+  tasks:
+
+    # ── httpd hello-world ──────────────────────────────────────────
+
+    - name: Install httpd
+      ansible.builtin.dnf:
+        name: httpd
+        state: present
+
+    - name: Deploy hello-world index page
+      ansible.builtin.template:
+        src: templates/index.html.j2
+        dest: /var/www/html/index.html
+        owner: apache
+        group: apache
+        mode: "0644"
+
+    - name: Start and enable httpd
+      ansible.builtin.systemd:
+        name: httpd
+        state: started
+        enabled: true
+
+    # ── System user for Prometheus components ──────────────────────
+
+    - name: Create prometheus system group
+      ansible.builtin.group:
+        name: "{{ prometheus_group }}"
+        system: true
+
+    - name: Create prometheus system user
+      ansible.builtin.user:
+        name: "{{ prometheus_user }}"
+        group: "{{ prometheus_group }}"
+        system: true
+        shell: /sbin/nologin
+        create_home: false
+
+    # ── Node Exporter ──────────────────────────────────────────────
+
+    - name: Download node_exporter
+      vars:
+        _base: "https://github.com/prometheus/node_exporter/releases/download"
+        _archive: "node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+      ansible.builtin.get_url:
+        url: "{{ _base }}/v{{ node_exporter_version }}/{{ _archive }}"
+        dest: /tmp/node_exporter.tar.gz
+        mode: "0644"
+
+    - name: Extract node_exporter
+      ansible.builtin.unarchive:
+        src: /tmp/node_exporter.tar.gz
+        dest: "{{ install_dir }}"
+        remote_src: true
+
+    - name: Symlink node_exporter binary
+      ansible.builtin.file:
+        src: "{{ install_dir }}/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+        dest: /usr/local/bin/node_exporter
+        state: link
+
+    - name: Deploy node_exporter systemd unit
+      ansible.builtin.template:
+        src: templates/node_exporter.service.j2
+        dest: /etc/systemd/system/node_exporter.service
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Start and enable node_exporter
+      ansible.builtin.systemd:
+        name: node_exporter
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # ── Prometheus ─────────────────────────────────────────────────
+
+    - name: Create Prometheus directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_group }}"
+        mode: "0755"
+      loop:
+        - "{{ prometheus_config_dir }}"
+        - "{{ prometheus_config_dir }}/rules"
+        - "{{ prometheus_data_dir }}"
+
+    - name: Download Prometheus
+      ansible.builtin.get_url:
+        url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+        dest: /tmp/prometheus.tar.gz
+        mode: "0644"
+
+    - name: Extract Prometheus
+      ansible.builtin.unarchive:
+        src: /tmp/prometheus.tar.gz
+        dest: "{{ install_dir }}"
+        remote_src: true
+
+    - name: Symlink Prometheus binaries
+      ansible.builtin.file:
+        src: "{{ install_dir }}/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        state: link
+      loop:
+        - prometheus
+        - promtool
+
+    - name: Deploy Prometheus config
+      ansible.builtin.template:
+        src: templates/prometheus.yml.j2
+        dest: "{{ prometheus_config_dir }}/prometheus.yml"
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_group }}"
+        mode: "0644"
+      notify: Restart prometheus
+
+    - name: Deploy alert rules
+      ansible.builtin.template:
+        src: templates/alert_rules.yml.j2
+        dest: "{{ prometheus_config_dir }}/rules/alert_rules.yml"
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_group }}"
+        mode: "0644"
+      notify: Restart prometheus
+
+    - name: Deploy Prometheus systemd unit
+      ansible.builtin.template:
+        src: templates/prometheus.service.j2
+        dest: /etc/systemd/system/prometheus.service
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Start and enable Prometheus
+      ansible.builtin.systemd:
+        name: prometheus
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # ── AlertManager ───────────────────────────────────────────────
+
+    - name: Create AlertManager directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_group }}"
+        mode: "0755"
+      loop:
+        - "{{ alertmanager_config_dir }}"
+        - "{{ alertmanager_data_dir }}"
+
+    - name: Download AlertManager
+      vars:
+        _base: "https://github.com/prometheus/alertmanager/releases/download"
+        _archive: "alertmanager-{{ alertmanager_version }}.linux-amd64.tar.gz"
+      ansible.builtin.get_url:
+        url: "{{ _base }}/v{{ alertmanager_version }}/{{ _archive }}"
+        dest: /tmp/alertmanager.tar.gz
+        mode: "0644"
+
+    - name: Extract AlertManager
+      ansible.builtin.unarchive:
+        src: /tmp/alertmanager.tar.gz
+        dest: "{{ install_dir }}"
+        remote_src: true
+
+    - name: Symlink AlertManager binaries
+      ansible.builtin.file:
+        src: "{{ install_dir }}/alertmanager-{{ alertmanager_version }}.linux-amd64/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        state: link
+      loop:
+        - alertmanager
+        - amtool
+
+    - name: Deploy AlertManager config
+      ansible.builtin.template:
+        src: templates/alertmanager.yml.j2
+        dest: "{{ alertmanager_config_dir }}/alertmanager.yml"
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_group }}"
+        mode: "0644"
+      notify: Restart alertmanager
+
+    - name: Deploy AlertManager systemd unit
+      ansible.builtin.template:
+        src: templates/alertmanager.service.j2
+        dest: /etc/systemd/system/alertmanager.service
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Start and enable AlertManager
+      ansible.builtin.systemd:
+        name: alertmanager
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # ── ServiceNow Webhook Bridge ──────────────────────────────────
+
+    - name: Deploy ServiceNow webhook bridge script
+      ansible.builtin.template:
+        src: templates/snow_webhook.py.j2
+        dest: /usr/local/bin/snow-webhook-bridge
+        mode: "0755"
+      notify: Restart snow-webhook
+
+    - name: Deploy webhook bridge systemd unit
+      ansible.builtin.template:
+        src: templates/snow_webhook.service.j2
+        dest: /etc/systemd/system/snow-webhook.service
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Start and enable webhook bridge
+      ansible.builtin.systemd:
+        name: snow-webhook
+        state: started
+        enabled: true
+        daemon_reload: true
+
+  handlers:
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Restart prometheus
+      ansible.builtin.systemd:
+        name: prometheus
+        state: restarted
+
+    - name: Restart alertmanager
+      ansible.builtin.systemd:
+        name: alertmanager
+        state: restarted
+
+    - name: Restart snow-webhook
+      ansible.builtin.systemd:
+        name: snow-webhook
+        state: restarted

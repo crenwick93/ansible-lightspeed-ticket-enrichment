@@ -1,0 +1,174 @@
+---
+# All CAAC objects live here. apply.yml loads this file and runs dispatch.
+
+# Controller custom credential types
+controller_credential_types:
+  - name: "ServiceNow Credential"
+    description: "Description of your credential type"
+    kind: "cloud"
+    inputs:
+      fields:
+        - id: SN_HOST
+          type: string
+          label: Snow Instance
+        - id: SN_USERNAME
+          type: string
+          label: Username
+        - id: SN_PASSWORD
+          type: string
+          label: Password
+          secret: true
+      required:
+        - SN_HOST
+        - SN_USERNAME
+        - SN_PASSWORD
+    injectors:
+      env:
+        SN_HOST: !unsafe "{{ SN_HOST }}"
+        SN_USERNAME: !unsafe "{{ SN_USERNAME }}"
+        SN_PASSWORD: !unsafe "{{ SN_PASSWORD }}"
+  - name: "ALIA Token"
+    description: "Bearer token for Ansible Lightspeed AI agent"
+    kind: "cloud"
+    inputs:
+      fields:
+        - id: ALIA_TOKEN
+          type: string
+          label: ALIA Bearer Token
+          secret: true
+      required:
+        - ALIA_TOKEN
+    injectors:
+      env:
+        ALIA_TOKEN: !unsafe "{{ ALIA_TOKEN }}"
+
+# EDA custom credential types
+eda_credential_types:
+  - name: "ServiceNow Credential"
+    description: "Description of your credential type"
+    kind: "cloud"
+    inputs:
+      fields:
+        - id: SN_HOST
+          type: string
+          label: Snow Instance
+        - id: SN_USERNAME
+          type: string
+          label: Username
+        - id: SN_PASSWORD
+          type: string
+          label: Password
+          secret: true
+      required:
+        - SN_HOST
+        - SN_USERNAME
+        - SN_PASSWORD
+    injectors:
+      env:
+        SN_HOST: !unsafe "{{ SN_HOST }}"
+        SN_USERNAME: !unsafe "{{ SN_USERNAME }}"
+        SN_PASSWORD: !unsafe "{{ SN_PASSWORD }}"
+
+# Controller projects
+controller_projects:
+  - name: "ALIA ticket enrichment demo"
+    description: "Demo project for Llama Stack RAG"
+    organization: "{{ aap_org }}"
+    scm_type: "git"
+    scm_url: "https://github.com/crenwick93/ansible-lightspeed-ticket-enrichment.git"
+    scm_branch: "main"
+    scm_update_on_launch: true
+
+# Controller job templates
+controller_templates:
+  - name: "ALIA Diagnostics"
+    description: "Run ALIA Diagnostics on an incident"
+    organization: "{{ aap_org }}"
+    job_type: "run"
+    project: "ALIA ticket enrichment demo"
+    playbook: "playbooks/alia_diagnostics.yml"
+    inventory: "Demo Inventory"
+    ask_variables_on_launch: true
+    credentials:
+      - "ServiceNow ITSM"
+      - "ALIA API"
+
+# EDA projects
+eda_projects:
+  - name: "ALIA ticket enrichment demo"
+    description: "Demo project"
+    organization: "{{ aap_org }}"
+    scm_type: "git"
+    scm_url: "https://github.com/crenwick93/ansible-lightspeed-ticket-enrichment.git"
+    scm_branch: "main"
+    scm_update_on_launch: true
+    sync: true
+
+# Controller credentials (ServiceNow, using the custom type)
+controller_credentials:
+  - name: "ServiceNow ITSM"
+    description: "ServiceNow ITSM credential"
+    organization: "{{ aap_org }}"
+    credential_type: "ServiceNow Credential"
+    inputs:
+      SN_HOST: "{{ sn_instance }}"
+      SN_USERNAME: "{{ sn_username }}"
+      SN_PASSWORD: "{{ sn_password }}"
+  - name: "AAP Controller"
+    description: "Token credential for launching Controller jobs via ansible.controller modules"
+    organization: "{{ aap_org }}"
+    credential_type: "Red Hat Ansible Automation Platform"
+    inputs:
+      host: "{{ (aap_hostname | regex_replace('/+$','')) ~ '/api/controller/' }}"
+      oauth_token: "{{ aap_token }}"
+      verify_ssl: "{{ aap_validate_certs }}"
+  - name: "ALIA API"
+    description: "Bearer token for the Ansible Lightspeed AI agent"
+    organization: "{{ aap_org }}"
+    credential_type: "ALIA Token"
+    inputs:
+      ALIA_TOKEN: "{{ alia_token }}"
+
+# EDA credentials (ServiceNow, using the custom type)
+eda_credentials:
+  - name: "ServiceNow ITSM"
+    description: "ServiceNow ITSM credential"
+    organization: "{{ aap_org }}"
+    credential_type: "ServiceNow Credential"
+    inputs:
+      SN_HOST: "{{ sn_instance }}"
+      SN_USERNAME: "{{ sn_username }}"
+      SN_PASSWORD: "{{ sn_password }}"
+  - name: "AAP Controller"
+    description: "Token credential for connecting EDA to Controller"
+    organization: "{{ aap_org }}"
+    credential_type: "Red Hat Ansible Automation Platform"
+    inputs:
+      host: "{{ (aap_hostname | regex_replace('/+$','')) ~ '/api/controller/' }}"
+      oauth_token: "{{ aap_token }}"
+      verify_ssl: "{{ aap_validate_certs }}"
+
+# EDA Decision Environments
+eda_decision_environments:
+  - name: "snow-de"
+    description: "Decision Environment with ServiceNow collection"
+    organization: "{{ aap_org }}"
+    image_url: "{{ de_image }}"
+    # If your registry requires auth, add:
+    # credential: "<registry-credential-name>"
+
+# EDA rulebook activations
+eda_rulebook_activations:
+  - name: "snow-incidents"
+    description: "Monitor ServiceNow incidents"
+    organization: "{{ aap_org }}"
+    project: "ALIA ticket enrichment demo"
+    rulebook: "snow_incidents.yml"
+    decision_environment: "snow-de"
+    eda_credentials:
+      - "ServiceNow ITSM"
+      - "AAP Controller"
+    enabled: true
+    #log_level: "debug"
+
+

@@ -1,0 +1,43 @@
+---
+- name: Monitor incidents in ServiceNow
+  hosts: all
+  execution_strategy: parallel
+  sources:
+    - servicenow.itsm.records:
+        table: incident
+        interval: 10
+        remote_servicenow_timezone: "Europe/London"
+        # newest first to avoid the “oldest page first” trap
+        sysparm_query: >
+          ORDERBYDESCsys_updated_on^ORDERBYDESCsys_id
+      filters:
+        - ansible.eda.json_filter:
+        - ansible.eda.normalize_keys:
+  rules:
+    # Debug helper: pretty-print the entire event (toggle by condition)
+    # - name: Show event (pretty)
+    #   condition: event.meta is defined
+    #   action:
+    #     print_event:
+    #       pretty: true
+
+###############################################################################################
+############################ RUN THE DIAGNOSTICS & ENRICH INCIDENT ############################
+
+    - name: Run diagnostics and enrich incident
+      throttle:
+        once_within: 10 minutes
+        group_by_attributes:
+          - sys_id
+      condition: event.short_description is defined
+      action:
+        run_job_template:
+          name: ALIA Diagnostics
+          organization: Default
+          post_events: true
+          job_args:
+            extra_vars:
+              incident_description: "{{ event.short_description + ' ' + event.description }}"
+              k8s_agent_base_url: "https://k8-diagnostics-agent-llama-stack-demo.apps.cluster-jqzjt.jqzjt.sandbox1923.opentlc.com"
+              incident_sys_id: "{{ event.sys_id }}"
+
