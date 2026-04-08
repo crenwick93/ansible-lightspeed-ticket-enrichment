@@ -20,5 +20,5 @@ output "hello_world_url" {
 
 output "ssh_command" {
   description = "SSH into the instance"
-  value       = "ssh -i ${local_sensitive_file.ssh_private_key.filename} ec2-user@${aws_instance.monitoring.public_ip}"
+  value       = "ssh -i ${abspath(local_sensitive_file.ssh_private_key.filename)} ec2-user@${aws_instance.monitoring.public_ip}"
 }

@@ -1,5 +1,5 @@
 ---
-# All CAAC objects live here. apply.yml loads this file and runs dispatch.
+# All CaC objects live here. apply.yml loads this file and runs dispatch.
 
 # Controller custom credential types
 controller_credential_types:
@@ -81,17 +81,41 @@ controller_projects:
 
 # Controller job templates
 controller_templates:
-  - name: "ALIA Diagnostics"
-    description: "Run ALIA Diagnostics on an incident"
+  - name: "Gather Diagnostics"
+    description: "SSH to the affected host and collect systemd, journal, and system health data"
     organization: "{{ aap_org }}"
     job_type: "run"
     project: "ALIA ticket enrichment demo"
-    playbook: "playbooks/alia_diagnostics.yml"
+    playbook: "playbooks/gather_diagnostics.yml"
+    inventory: "Monitoring Hosts"
+    ask_variables_on_launch: true
+    credentials:
+      - "Monitoring SSH"
+  - name: "ALIA Enrichment"
+    description: "Send diagnostics report to ALIA and update ServiceNow incident"
+    organization: "{{ aap_org }}"
+    job_type: "run"
+    project: "ALIA ticket enrichment demo"
+    playbook: "playbooks/alia_enrichment.yml"
     inventory: "Demo Inventory"
     ask_variables_on_launch: true
     credentials:
       - "ServiceNow ITSM"
       - "ALIA API"
+
+# Controller workflow templates
+controller_workflows:
+  - name: "Incident Diagnostics Workflow"
+    description: "Gather diagnostics from affected host, then send to ALIA for analysis and update ServiceNow"
+    organization: "{{ aap_org }}"
+    ask_variables_on_launch: true
+    simplified_workflow_nodes:
+      - identifier: gather
+        unified_job_template: "Gather Diagnostics"
+        success_nodes:
+          - enrich
+      - identifier: enrich
+        unified_job_template: "ALIA Enrichment"
 
 # EDA projects
 eda_projects:

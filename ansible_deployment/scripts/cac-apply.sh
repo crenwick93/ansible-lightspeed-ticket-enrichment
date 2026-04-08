@@ -5,7 +5,7 @@ set -euo pipefail
 # This script sources the REPO ROOT .env so all variables are centralized.
 #
 # Usage:
-#   ./ansible_deployment/scripts/caac-apply.sh
+#   ./ansible_deployment/scripts/cac-apply.sh
 #
 # Required env (from top-level .env):
 #   AAP_HOSTNAME, AAP_TOKEN, AAP_VALIDATE_CERTS (true|false), AAP_ORG
@@ -15,7 +15,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-PLAYBOOK="${REPO_ROOT}/ansible_deployment/caac/apply.yml"
+PLAYBOOK="${REPO_ROOT}/ansible_deployment/cac/apply.yml"
 
 # Load top-level .env if present
 if [[ -f "${REPO_ROOT}/.env" ]]; then

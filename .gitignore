@@ -7,6 +7,7 @@ setup/terraform/*.tfstate
 setup/terraform/*.tfstate.backup
 setup/terraform/.terraform.lock.hcl
 setup/terraform/terraform.tfvars
+setup/terraform/demo-key.pem
 
 # Generated Ansible inventory (contains IPs / key paths)
 setup/playbooks/inventory/hosts.yml

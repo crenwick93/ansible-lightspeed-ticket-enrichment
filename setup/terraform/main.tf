@@ -43,11 +43,49 @@ resource "local_sensitive_file" "ssh_private_key" {
   file_permission = "0600"
 }
 
+# ── VPC + networking ───────────────────────────────────────────
+
+resource "aws_vpc" "demo" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags                 = { Name = "prom-alertmgr-demo" }
+}
+
+resource "aws_internet_gateway" "demo" {
+  vpc_id = aws_vpc.demo.id
+  tags   = { Name = "prom-alertmgr-demo" }
+}
+
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.demo.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "prom-alertmgr-demo-public" }
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.demo.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.demo.id
+  }
+
+  tags = { Name = "prom-alertmgr-demo-public" }
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
 # ── Security group ─────────────────────────────────────────────
 
 resource "aws_security_group" "monitoring" {
   name_prefix = "prom-alertmgr-demo-"
   description = "Prometheus + AlertManager + httpd demo"
+  vpc_id      = aws_vpc.demo.id
 
   dynamic "ingress" {
     for_each = {
@@ -82,6 +120,7 @@ resource "aws_instance" "monitoring" {
   ami                         = data.aws_ami.al2023.id
   instance_type               = var.instance_type
   key_name                    = aws_key_pair.demo.key_name
+  subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.monitoring.id]
   associate_public_ip_address = true
 
@@ -102,7 +141,7 @@ resource "local_file" "ansible_inventory" {
         monitoring:
           ansible_host: ${aws_instance.monitoring.public_ip}
           ansible_user: ec2-user
-          ansible_ssh_private_key_file: ${local_sensitive_file.ssh_private_key.filename}
+          ansible_ssh_private_key_file: ${abspath(local_sensitive_file.ssh_private_key.filename)}
           ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
   YAML
 

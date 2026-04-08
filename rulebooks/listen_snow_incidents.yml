@@ -31,13 +31,12 @@
           - sys_id
       condition: event.short_description is defined
       action:
-        run_job_template:
-          name: ALIA Diagnostics
+        run_workflow_template:
+          name: Incident Diagnostics Workflow
           organization: Default
           post_events: true
           job_args:
             extra_vars:
               incident_description: "{{ event.short_description + ' ' + event.description }}"
-              k8s_agent_base_url: "https://k8-diagnostics-agent-llama-stack-demo.apps.cluster-jqzjt.jqzjt.sandbox1923.opentlc.com"
               incident_sys_id: "{{ event.sys_id }}"
 
