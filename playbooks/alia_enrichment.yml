@@ -28,7 +28,7 @@
 
     - name: Call ALIA to analyse diagnostics
       ansible.builtin.uri:
-        url: "{{ alia_base_url }}/api/lightspeed/v1/ai/chat/"
+        url: "https://10.0.1.249/api/lightspeed/v1/ai/chat/"
         method: POST
         headers:
           Authorization: "Bearer {{ alia_token }}"

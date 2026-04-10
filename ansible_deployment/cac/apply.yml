@@ -27,7 +27,7 @@
 
     # Monitoring SSH key (EC2 instance provisioned by Terraform — used for Machine credential)
     monitoring_ssh_key: "{{ lookup('file', monitoring_ssh_key_path, errors='ignore') | default(omit, true) }}"
-    monitoring_ssh_key_path: "{{ lookup('env', 'MONITORING_SSH_KEY_PATH') | default('../setup/terraform/demo-key.pem', true) }}"
+    monitoring_ssh_key_path: "{{ lookup('env', 'MONITORING_SSH_KEY_PATH') | default(playbook_dir + '/../../setup/terraform/demo-key.pem', true) }}"
 
     # EDA custom Decision Environment image (build and push first, then set here)
     de_image: "quay.io/crenwick93/snow-de:latest"
