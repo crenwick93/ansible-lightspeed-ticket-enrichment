@@ -52,7 +52,7 @@
 
     - name: Show worknotes (ServiceNow-ready)
       ansible.builtin.debug:
-        msg: "{{ alia_result.worknotes | default('no worknotes returned') }}"
+        msg: "{{ alia_result.response | default('no response returned') }}"
 
 ###############################################################################################
 #####################  UPLOAD REPORT TO SERVICE NOW  ##########################################
@@ -60,9 +60,9 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Update incident with ALIA worknotes
+    - name: Update incident with ALIA analysis
       servicenow.itsm.incident:
         sys_id: "{{ incident_sys_id }}"
         state: 2
         other:
-          work_notes: "{{ alia_result.worknotes | default('no worknotes returned') }}"
+          work_notes: "{{ alia_result.response | default('no response returned') }}"
