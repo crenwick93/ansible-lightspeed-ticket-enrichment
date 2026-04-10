@@ -4,7 +4,7 @@
   gather_facts: false
 
   vars:
-    alia_base_url: "https://localhost:8443"
+    alia_base_url: "https://localhost"
     alia_token: "{{ lookup('env', 'ALIA_TOKEN') }}"
     validate_tls: false
     request_timeout: 120
