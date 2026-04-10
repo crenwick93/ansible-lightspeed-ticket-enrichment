@@ -4,7 +4,7 @@
   gather_facts: false
 
   vars:
-    alia_base_url: "https://localhost"
+    alia_base_url: "https://aap.sandbox3331.opentlc.com"
     alia_token: "{{ lookup('env', 'ALIA_TOKEN') }}"
     validate_tls: false
     request_timeout: 120
@@ -37,7 +37,7 @@
 
     - name: Call ALIA to analyse diagnostics
       ansible.builtin.uri:
-        url: "https://10.0.1.249/api/lightspeed/v1/ai/chat/"
+        url: "{{ alia_base_url }}/api/lightspeed/v1/ai/chat/"
         method: POST
         headers:
           Authorization: "Bearer {{ alia_token }}"
