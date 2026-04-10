@@ -20,6 +20,15 @@
           2. Remediation steps — specific commands or actions to resolve the issue
           3. Prevention recommendations — how to stop this happening again
 
+          IMPORTANT FORMATTING RULES:
+          - Your response will be inserted into a ServiceNow work notes field.
+          - Format your entire response as HTML. Do NOT use markdown.
+          - Use <h3> for section headings, <p> for paragraphs, <ol>/<ul>/<li> for lists.
+          - Use <code> for inline commands and file paths.
+          - Use <pre> for multi-line error output or log excerpts.
+          - Do NOT wrap the response in [code] tags — that will be added automatically.
+          - Keep the response concise and actionable.
+
           --- Incident ---
           {{ incident_description }}
 
@@ -65,4 +74,4 @@
         sys_id: "{{ incident_sys_id }}"
         state: 2
         other:
-          work_notes: "{{ alia_result.response | default('no response returned') }}"
+          work_notes: "[code]{{ alia_result.response | default('no response returned') }}[/code]"
