@@ -12,7 +12,7 @@
 
     - name: Extract CMDB CI sys_id from incident
       ansible.builtin.set_fact:
-        cmdb_ci_sys_id: "{{ incident_result.records[0].cmdb_ci.value }}"
+        cmdb_ci_sys_id: "{{ incident_result.records[0].cmdb_ci.value | default(incident_result.records[0].cmdb_ci) }}"
 
     - name: Query CMDB for configuration item details
       servicenow.itsm.configuration_item_info:
