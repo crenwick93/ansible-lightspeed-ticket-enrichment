@@ -208,7 +208,7 @@ eda_rulebook_activations:
     description: "Monitor ServiceNow incidents"
     organization: "{{ aap_org }}"
     project: "ALIA ticket enrichment demo"
-    rulebook: "snow_incidents.yml"
+    rulebook: "listen_snow_incidents.yml"
     decision_environment: "snow-de"
     eda_credentials:
       - "ServiceNow ITSM"
