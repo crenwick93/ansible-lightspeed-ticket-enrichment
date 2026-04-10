@@ -12,13 +12,13 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "aws_ami" "al2023" {
+data "aws_ami" "rhel9" {
   most_recent = true
-  owners      = ["amazon"]
+  owners      = ["309956199498"] # Red Hat
 
   filter {
     name   = "name"
-    values = ["al2023-ami-2023.*-x86_64"]
+    values = ["RHEL-9.*_HVM-*-x86_64-*-Hourly2-GP3"]
   }
   filter {
     name   = "virtualization-type"
@@ -117,7 +117,7 @@ resource "aws_security_group" "monitoring" {
 # ── EC2 instance ───────────────────────────────────────────────
 
 resource "aws_instance" "monitoring" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = data.aws_ami.rhel9.id
   instance_type               = var.instance_type
   key_name                    = aws_key_pair.demo.key_name
   subnet_id                   = aws_subnet.public.id
