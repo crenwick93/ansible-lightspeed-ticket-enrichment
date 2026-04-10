@@ -13,8 +13,17 @@
     - name: Build ALIA query from incident and diagnostics
       ansible.builtin.set_fact:
         alia_query: |-
-          Incident: {{ incident_description }}
+          You are an IT operations analyst. A ServiceNow incident has been raised and system diagnostics have been collected from the affected host.
 
+          Analyse the following and provide:
+          1. Root Cause Analysis (RCA) — what failed and why
+          2. Remediation steps — specific commands or actions to resolve the issue
+          3. Prevention recommendations — how to stop this happening again
+
+          --- Incident ---
+          {{ incident_description }}
+
+          --- Diagnostics ---
           {{ diagnostics_report | default('No diagnostics report available.') }}
 
     - name: Call ALIA to analyse diagnostics
