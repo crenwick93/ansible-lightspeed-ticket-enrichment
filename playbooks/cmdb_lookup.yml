@@ -37,4 +37,3 @@
     - name: Pause for demo visibility
       ansible.builtin.pause:
         seconds: 10
-
