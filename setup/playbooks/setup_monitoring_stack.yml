@@ -360,7 +360,7 @@
           - "  AlertManager:       http://{{ ansible_host }}:9093"
           - "  Node Exporter:      http://{{ ansible_host }}:9100"
           - ""
-          - "  SSH:  ssh -i setup/terraform/demo-key.pem ec2-user@{{ ansible_host }}"
+          - "  SSH:  ssh -i {{ hostvars['monitoring']['ansible_ssh_private_key_file'] }} ec2-user@{{ ansible_host }}"
           - ""
           - "  CMDB CI:  {{ hostvars['localhost']['cmdb_ci_sys_id'] | default('not registered') }}"
           - "============================================"

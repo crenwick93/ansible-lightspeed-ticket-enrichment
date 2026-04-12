@@ -156,3 +156,17 @@ resource "local_file" "ansible_inventory" {
   filename        = "${path.module}/../playbooks/inventory/hosts.yml"
   file_permission = "0644"
 }
+
+resource "terraform_data" "update_env" {
+  triggers_replace = aws_eip.monitoring.public_ip
+
+  provisioner "local-exec" {
+    command = <<-SH
+      ENV_FILE="${path.module}/../../.env"
+      if [ -f "$ENV_FILE" ]; then
+        sed -i.bak 's/^MONITORING_HOST_IP=.*/MONITORING_HOST_IP=${aws_eip.monitoring.public_ip}/' "$ENV_FILE"
+        rm -f "$ENV_FILE.bak"
+      fi
+    SH
+  }
+}

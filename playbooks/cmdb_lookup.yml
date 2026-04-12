@@ -33,3 +33,8 @@
           target_host_ip: "{{ target_host_ip }}"
           incident_sys_id: "{{ incident_sys_id }}"
           incident_description: "{{ incident_description }}"
+
+    - name: Pause for demo visibility
+      ansible.builtin.pause:
+        seconds: 10
+
