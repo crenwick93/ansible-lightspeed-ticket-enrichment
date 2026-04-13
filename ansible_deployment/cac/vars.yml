@@ -120,15 +120,15 @@ controller_workflows:
     organization: "{{ aap_org }}"
     ask_variables_on_launch: true
     simplified_workflow_nodes:
-      - identifier: cmdb_lookup
+      - identifier: CMDB Lookup
         unified_job_template: "CMDB Lookup"
         success_nodes:
           - gather
-      - identifier: gather
+      - identifier: Diagnostics
         unified_job_template: "Gather Diagnostics"
         success_nodes:
           - enrich
-      - identifier: enrich
+      - identifier: ALIA Enrichment
         unified_job_template: "ALIA Enrichment"
 
 # EDA projects
