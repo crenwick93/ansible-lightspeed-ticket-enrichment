@@ -123,11 +123,11 @@ controller_workflows:
       - identifier: CMDB Lookup
         unified_job_template: "CMDB Lookup"
         success_nodes:
-          - gather
+          - Diagnostics
       - identifier: Diagnostics
         unified_job_template: "Gather Diagnostics"
         success_nodes:
-          - enrich
+          - ALIA Enrichment
       - identifier: ALIA Enrichment
         unified_job_template: "ALIA Enrichment"
 
